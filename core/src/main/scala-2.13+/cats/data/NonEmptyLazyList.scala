@@ -483,10 +483,13 @@ sealed abstract private[data] class NonEmptyLazyListInstances extends NonEmptyLa
 
       def reduceLeftTo[A, B](fa: NonEmptyLazyList[A])(f: A => B)(g: (B, A) => B): B = fa.reduceLeftTo(f)(g)
 
-      def reduceRightTo[A, B](fa: NonEmptyLazyList[A])(f: A => B)(g: (A, cats.Eval[B]) => cats.Eval[B]): cats.Eval[B] =
-        Eval.defer(fa.reduceRightTo(a => Eval.later(f(a))) { (a, b) =>
-          Eval.defer(g(a, b))
-        })
+      def reduceRightTo[A, B](fa: NonEmptyLazyList[A])(f: A => B)(g: (A, cats.Eval[B]) => cats.Eval[B]): cats.Eval[B] = {
+        def loop(head: A, tail: LazyList[A]): cats.Eval[B] = {
+          if (tail.isEmpty) Eval.later(f(head)) else g(head, Eval.defer(loop(tail.head, tail.tail)))
+        }
+
+        Eval.defer(loop(fa.head, fa.tail))
+      }
 
       private val alignInstance = Align[LazyList].asInstanceOf[Align[NonEmptyLazyList]]
 
